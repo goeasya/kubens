@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+
+
+echo_blue() {
+  echo -e "\033[1;34m $* \033[0m"
+}
+
+echo_green() {
+  echo -e "\033[1;32m $* \033[0m"
+}
+
+exit_err() {
+   echo -e >&2 "\033[1;31m $* \033[0m"
+   exit 1
+}
+
+current_context() {
+  $KUBECTL config current-context
+}
+
+get_namespaces() {
+  $KUBECTL get namespaces -o=jsonpath='{range .items[*].metadata.name}{@}{"\n"}{end}'
+}
+
+set_namespace() {
+  local ctx
+  ctx="$(current_context)" || exit_err "error getting current context"
+  $KUBECTL config set-context "${ctx}" --namespace="${1}"
+  echo_green "Active namespace is \"${1}\".">&2
+}
+
+select_namespace() {
+  namespace=$(get_namespaces)
+
+  echo_blue "Choose the namespaces you wanna use"
+
+  select ns in $namespace
+  do
+      set_namespace $ns
+      break
+  done
+}
+
+main() {
+  if [[ -z "${KUBECTL:-}" ]]; then
+    if hash kubectl 2>/dev/null; then
+      KUBECTL=kubectl
+    elif hash kubectl.exe  2>/dev/null; then
+      KUBECTL=kubectl.exe
+    else
+      exit_err "kubectl is not installed"
+    fi
+  fi
+  select_namespace
+}
+
+main
